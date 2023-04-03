@@ -35,7 +35,7 @@ pub fn pollInput(time_ns: u64) !?Input {
             });
 
             if (c._kbhit() != 0) {
-                buffer[0] = c._getch();
+                buffer[0] = @intCast(u8, c._getch());
             }
         } else {
             _ = try std.io.getStdIn().reader().read(&buffer);

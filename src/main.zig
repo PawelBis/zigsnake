@@ -9,7 +9,6 @@ const Input = controls.Input;
 const sys = std.zig.system.NativeTargetInfo;
 
 pub fn gotoxy(x: usize, y: usize, draw: ?u8) !void {
-    sys.detect()
     const stdout = std.io.getStdOut().writer();
     try stdout.print("{c}[{d};{d}f{c}", .{ 0x1B, y, x, draw orelse 'X' });
 }
