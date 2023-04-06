@@ -1,6 +1,7 @@
 const std = @import("std");
 const Vec2 = @import("Vec2.zig").Vec2;
 const Snake = @import("Snake.zig").Snake;
+const MAX_SNAKE_LENGTH = @import("Snake.zig").MAX_SNAKE_LENGTH;
 const Xoshiro256 = std.rand.Xoshiro256;
 const Thread = std.Thread;
 const Writer = std.io.Writer;
@@ -43,30 +44,44 @@ pub fn render(snake: Snake) !void {
     try gotoxy(MAP_WIDTH, MAP_HEIGHT, null);
 }
 
-pub fn spawnFood(rand: *Xoshiro256) !Vec2 {
-    const rand_x: i32 = @mod(rand.random().int(i32), @intCast(i32, MAP_WIDTH - 2)) + 2;
-    const rand_y: i32 = @mod(rand.random().int(i32), @intCast(i32, MAP_HEIGHT - 2)) + 2;
-    const spawn_position = Vec2{ .x = rand_x, .y = rand_y };
+pub fn spawnFood(rand: *Xoshiro256, snake: Snake) !Vec2 {
+    var found_spawn_position = false;
+    var spawn_position = Vec2{};
+    while (!found_spawn_position) {
+        const rand_x: i32 = @mod(rand.random().int(i32), @intCast(i32, MAP_WIDTH - 2)) + 2;
+        const rand_y: i32 = @mod(rand.random().int(i32), @intCast(i32, MAP_HEIGHT - 2)) + 2;
+        spawn_position = Vec2{ .x = rand_x, .y = rand_y };
+        for (snake.tail) |tail_position| {
+            if (Vec2.is_equal(tail_position, spawn_position)) {
+                continue;
+            }
+        }
+        found_spawn_position = true;
+    }
     try gotoxy(spawn_position.getX(), spawn_position.getY(), '#');
 
     return spawn_position;
 }
 
+const DEFAULT_LOOP_TIME: u64 = 300_000_000;
+const MIN_LOOP_TIME: u64 = 200_000_000;
+const SUBSTEP: u64 = (DEFAULT_LOOP_TIME - MIN_LOOP_TIME) / MAX_SNAKE_LENGTH;
 pub fn main() !void {
     var termios = try controls.setupInput();
     _ = termios;
     try clearScreen();
 
     try drawMap();
-    var input: ?Input = null;
+    var input: ?Input = Input.Right;
 
+    //var timer_substep = DEFAULT_LOOP_TIME;
+    var timer_substep = MIN_LOOP_TIME;
     var snake = Snake.spawn(MAP_WIDTH / 2, MAP_HEIGHT / 2);
     var rand_impl = std.rand.DefaultPrng.init(0);
     var food_position: ?Vec2 = null;
     snake.tail[0] = snake.position;
 
     while (input != Input.Exit) {
-        const timer_substep: u64 = 1_000_000_000;
         input = try controls.pollInput(timer_substep);
         if (input) |some_input| {
             const move_direction = switch (some_input) {
@@ -80,12 +95,13 @@ pub fn main() !void {
         }
 
         if (food_position == null) {
-            food_position = try spawnFood(&rand_impl);
+            food_position = try spawnFood(&rand_impl, snake);
+            timer_substep -= SUBSTEP;
         }
 
         snake.updatePosition();
         try render(snake);
-        if (snake.checkCollision()) {
+        if (snake.checkCollision(Vec2{ .x = MAP_WIDTH, .y = MAP_HEIGHT })) {
             return;
         }
         if (food_position) |food| {

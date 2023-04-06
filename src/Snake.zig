@@ -1,9 +1,10 @@
 const std = @import("std");
 const Vec2 = @import("Vec2.zig").Vec2;
 
-const MAX_SNAKE_LENGTH: usize = 15;
+pub const MAX_SNAKE_LENGTH: usize = 15;
 pub const Snake = struct {
     position: Vec2,
+    // Add 1 for tail clearing position
     tail: [MAX_SNAKE_LENGTH + 1]Vec2,
     length: u8,
     direction: Vec2 = Vec2{ .x = 0, .y = 0 },
@@ -35,7 +36,11 @@ pub const Snake = struct {
         self.tail[0] = self.position;
     }
 
-    pub fn checkCollision(self: Snake) bool {
+    pub fn checkCollision(self: Snake, map_size: Vec2) bool {
+        if (self.position.x == 1 or self.position.y == 1 or self.position.x == map_size.x or self.position.y == map_size.y) {
+            return true;
+        }
+
         var i: usize = 1;
         while (i < self.length) : (i += 1) {
             const tail_segment_position = self.tail[i];
@@ -47,6 +52,10 @@ pub const Snake = struct {
     }
 
     pub fn tryConsumeFood(self: *Snake, food_position: Vec2) bool {
+        if (self.length >= MAX_SNAKE_LENGTH) {
+            return false;
+        }
+
         if (Vec2.is_equal(self.position, food_position)) {
             self.length += 1;
             return true;
